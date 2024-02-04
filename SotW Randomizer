@@ -1,0 +1,67 @@
+import discord
+from discord.ext import commands
+import os
+import random
+from datetime import datetime, timedelta
+import asyncio
+import tracemalloc
+
+from keep_alive import keep_alive
+
+intents = discord.Intents.default()
+intents.messages = True
+intents.guilds = True
+intents.reactions = True
+intents.message_content = True
+
+my_secret = os.environ['TOKEN']
+
+tracemalloc.start()
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+skills = ['Runecraft', 'Crafting', 'Mining', 'Smithing', 'Fishing', 'Cooking', 'Firemaking', 'Woodcutting', 'Agility (P2P)', 'Herblore (P2P)', 'Thieving (P2P)', 'Fletching (P2P)', 'Slayer (P2P)', 'Farming (P2P)', 'Construction (P2P)', 'Hunter (P2P)']
+selected_skills = []
+
+@bot.event
+async def on_ready():
+    print(f'We have logged in as {bot.user}')
+
+@bot.event
+async def on_message(message):
+    global selected_skills
+
+    if message.author == bot.user:
+        return
+
+    if message.content.startswith('!pollskills'):
+        if not selected_skills:
+            selected_skills = random.sample(skills, len(skills))
+
+        duration_command = message.content.split(' ')
+        poll_duration_seconds = int(duration_command[1]) if len(duration_command) > 1 and duration_command[1].isdigit() else 2 * 7 * 24 * 60 * 60
+
+        end_time = datetime.utcnow() + timedelta(seconds=poll_duration_seconds)
+
+        random_skills = random.sample(selected_skills, 3)
+        poll_question = f'Vote for the Skill of the Week!\n1. {random_skills[0]}\n2. {random_skills[1]}\n3. {random_skills[2]}\n\n'
+        poll_question += f'Time remaining: {timedelta(seconds=poll_duration_seconds)}'
+
+        poll_message = await message.channel.send(poll_question)
+
+        for i in range(1, 4):
+            await poll_message.add_reaction(f'{i}\u20e3')
+
+        while datetime.utcnow() < end_time:
+            time_remaining = end_time - datetime.utcnow()
+            await asyncio.sleep(30)
+            updated_question = f'Vote for the best skill!\n1. {random_skills[0]}\n2. {random_skills[1]}\n3. {random_skills[2]}\n\n'
+            updated_question += f'Time remaining: {time_remaining}'
+            await poll_message.edit(content=updated_question)
+
+        await message.channel.send('The poll has ended!')
+
+    await bot.process_commands(message)
+
+keep_alive()
+bot.run(my_secret)
